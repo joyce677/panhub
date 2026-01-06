@@ -374,9 +374,9 @@ export class HotSearchSQLiteService {
    */
   getDatabaseSize(): number {
     try {
-      const { statSync } = require('fs');
+      const fs = require('fs');
       if (existsSync(this.DB_PATH)) {
-        const stats = statSync(this.DB_PATH);
+        const stats = fs.statSync(this.DB_PATH);
         const size = Math.round((stats.size / (1024 * 1024)) * 100) / 100;
         console.log(`[HotSearchSQLite] 📊 数据库文件大小: ${size} MB (${stats.size} bytes)`);
         return size;
@@ -387,8 +387,7 @@ export class HotSearchSQLiteService {
           console.log(`[HotSearchSQLite] ℹ️ 数据目录存在但数据库文件缺失`);
           // 列出目录内容
           try {
-            const { readdirSync } = require('fs');
-            const files = readdirSync(this.DB_DIR);
+            const files = fs.readdirSync(this.DB_DIR);
             console.log(`[HotSearchSQLite] 📁 数据目录内容: ${files.length > 0 ? files.join(', ') : '(空)'}`);
           } catch (e) {
             console.log(`[HotSearchSQLite] ❌ 无法读取数据目录: ${e.message}`);
