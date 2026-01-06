@@ -1,33 +1,28 @@
 <template>
-  <div class="hot-search-section">
+  <!-- 无数据时不显示整个组件 -->
+  <div v-if="!loading && searches.length === 0" class="hidden"></div>
+
+  <div v-else class="hot-search-section">
     <h2 class="section-title">其他用户在搜</h2>
 
     <div class="cloud-container">
       <!-- 加载状态 -->
       <div v-if="loading" class="loading-state">
         <div class="spinner"></div>
-        <span>加载中...</span>
+        <span>搜索热度加载中...</span>
       </div>
 
       <!-- 智能标签云 -->
-      <template v-else>
-        <div class="tag-cloud" :class="{ 'has-data': searches.length > 0 }">
-          <button
-            v-for="item in searches"
-            :key="item.term"
-            class="tag-item"
-            :style="getTagStyle(item.score)"
-            @click="onSearchClick(item.term)"
-          >
-            {{ item.term }}
-          </button>
-        </div>
-      </template>
-
-      <!-- 空状态 -->
-      <div v-if="!loading && searches.length === 0" class="empty-state">
-        <div class="empty-icon">🔍</div>
-        <p>暂无热搜数据</p>
+      <div v-else class="tag-cloud">
+        <button
+          v-for="item in searches"
+          :key="item.term"
+          class="tag-item"
+          :style="getTagStyle(item.score)"
+          @click="onSearchClick(item.term)"
+        >
+          {{ item.term }}
+        </button>
       </div>
     </div>
   </div>
@@ -67,67 +62,24 @@ async function fetchHotSearches() {
         .slice(0, 30);
     }
   } catch (error) {
-    console.error('获取热搜失败:', error);
-    // 失败时使用假数据
-    searches.value = generateFallbackData();
+    // 失败时不显示任何内容
+    searches.value = [];
   } finally {
     loading.value = false;
   }
 }
 
-// 生成降级假数据
-function generateFallbackData(): HotSearchItem[] {
-  const now = Date.now();
-  const terms = [
-    { term: '黑神话悟空', score: 100 },
-    { term: '流浪地球3', score: 95 },
-    { term: 'Photoshop 2024', score: 90 },
-    { term: 'Python教程', score: 85 },
-    { term: '雅思真题', score: 80 },
-    { term: '周杰伦', score: 75 },
-    { term: '原神', score: 70 },
-    { term: 'Office 2021', score: 65 },
-    { term: 'VS Code', score: 60 },
-    { term: '无损音乐', score: 55 },
-    { term: 'Blender', score: 50 },
-    { term: '考研资料', score: 45 },
-    { term: '剪映专业版', score: 40 },
-    { term: 'React教程', score: 35 },
-    { term: 'Steam游戏', score: 30 },
-    { term: 'Excel技巧', score: 25 },
-    { term: 'PPT模板', score: 20 },
-    { term: '电子书', score: 15 },
-    { term: '车载HIFI', score: 10 },
-    { term: '4K电影', score: 9 },
-    { term: 'PS5游戏', score: 8 },
-    { term: '雅思资料', score: 7 },
-    { term: 'Adobe全家桶', score: 6 },
-    { term: 'Switch游戏', score: 5 },
-    { term: 'AI工具', score: 4 },
-    { term: 'Blender教程', score: 3 },
-    { term: '周杰伦专辑', score: 2 },
-    { term: 'VSCode插件', score: 2 },
-    { term: '雅思听力', score: 1 },
-    { term: 'FLAC音乐', score: 1 }
-  ];
-
-  return terms.map(t => ({
-    term: t.term,
-    score: t.score,
-    lastSearched: now,
-    createdAt: now
-  }));
-}
-
 // 根据分数计算标签样式
 function getTagStyle(score: number) {
+  if (searches.value.length === 0) return {};
+
   // 分数映射到字体大小（12px - 24px）
   const minScore = Math.min(...searches.value.map(s => s.score));
   const maxScore = Math.max(...searches.value.map(s => s.score));
   const normalized = (score - minScore) / (maxScore - minScore || 1);
   const fontSize = 12 + normalized * 12; // 12px - 24px
 
-  // 分数映射到颜色
+  // 分数映射到颜色 - 使用 PanHub 主题色系
   const colors = [
     { threshold: 80, color: '#ef4444' },  // 红色 - 最热
     { threshold: 60, color: '#f59e0b' },  // 橙色 - 热门
@@ -178,37 +130,37 @@ onMounted(() => {
   gap: 8px;
 }
 
+/* 使用 SVG 图标替代 emoji */
 .section-title::before {
-  content: '👥';
-  font-size: 24px;
+  content: '';
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M22 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
 }
 
 .cloud-container {
   width: 100%;
 }
 
-/* 标签云容器 */
+/* 标签云容器 - 玻璃拟态风格 */
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 20px;
+  gap: 6px;
+  padding: 24px;
   background: var(--bg-glass);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-lg);
-  min-height: 200px;
-  transition: all 0.3s ease;
+  min-height: 180px;
 }
 
-.tag-cloud.has-data {
-  justify-content: center;
-  align-items: center;
-}
-
-/* 标签样式 */
+/* 标签样式 - 现代设计 */
 .tag-item {
   display: inline-flex;
   align-items: center;
@@ -217,17 +169,18 @@ onMounted(() => {
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all 200ms ease;
   white-space: nowrap;
   text-align: center;
   line-height: 1.2;
   user-select: none;
+  position: relative;
 }
 
 .tag-item:hover {
-  transform: translateY(-2px) scale(1.05);
+  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  filter: brightness(1.1);
+  filter: brightness(1.08);
   z-index: 10;
 }
 
@@ -238,42 +191,21 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  padding: 60px 20px;
+  padding: 40px 20px;
   color: var(--text-secondary);
   background: var(--bg-glass);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-lg);
 }
 
 .spinner {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 3px solid rgba(99, 102, 241, 0.2);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-}
-
-/* 空状态 */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 60px 20px;
-  text-align: center;
-  color: var(--text-secondary);
-  background: var(--bg-glass);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: var(--radius-lg);
-}
-
-.empty-icon {
-  font-size: 48px;
-  opacity: 0.5;
 }
 
 /* 动画 */
@@ -287,15 +219,19 @@ onMounted(() => {
     font-size: 18px;
   }
 
-  .tag-cloud {
-    padding: 16px;
-    gap: 3px;
-    min-height: 160px;
+  .section-title::before {
+    width: 20px;
+    height: 20px;
   }
 
-  .loading-state,
-  .empty-state {
-    padding: 40px 16px;
+  .tag-cloud {
+    padding: 16px;
+    gap: 4px;
+    min-height: 140px;
+  }
+
+  .loading-state {
+    padding: 30px 16px;
   }
 }
 
@@ -306,8 +242,7 @@ onMounted(() => {
     border-color: rgba(255, 255, 255, 0.08);
   }
 
-  .loading-state,
-  .empty-state {
+  .loading-state {
     background: rgba(15, 23, 42, 0.6);
     border-color: rgba(255, 255, 255, 0.08);
   }
@@ -334,5 +269,9 @@ onMounted(() => {
   .tag-item:hover {
     transform: none;
   }
+}
+
+.hidden {
+  display: none;
 }
 </style>
