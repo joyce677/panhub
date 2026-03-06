@@ -196,6 +196,93 @@ export function useSearch() {
     }
   }
 
+
+  // 并发搜索 - 每个源独立请求
+  async function performParallelSearch(options: SearchOptions): Promise<void> {
+    const { apiBase, keyword, settings } = options;
+    const conc = Math.min(16, Math.max(1, Number(settings.concurrency || 3)));
+
+    const enabledPlugins = settings.enabledPlugins.filter((n) =>
+      ALL_PLUGIN_NAMES.includes(n as any)
+    );
+
+    const enabledTgChannels = settings.enabledTgChannels || [];
+
+    if (enabledPlugins.length === 0 && enabledTgChannels.length === 0) {
+      setError("请先在设置中选择至少一个搜索来源");
+      return;
+    }
+
+    // 收集所有搜索任务
+    const searchTasks: Array<() => Promise<MergedLinks>> = [];
+
+    // 为每个插件创建独立的搜索任务
+    for (const plugin of enabledPlugins) {
+      const task = async () => {
+        try {
+          const extParam = JSON.stringify({ __plugin_timeout_ms: settings.pluginTimeoutMs });
+          const response = await $fetch<GenericResponse<SearchResponse>>(
+            `${apiBase}/search?kw=${encodeURIComponent(keyword)}&res=merged_by_type&src=plugin&plugins=${plugin}&conc=${conc}&ext=${encodeURIComponent(extParam)}`
+          );
+          return response.data?.merged_by_type || {};
+        } catch (error) {
+          console.warn(`Plugin ${plugin} search failed:`, error);
+          return {};
+        }
+      };
+      searchTasks.push(task);
+    }
+
+    // 为 TG 频道创建搜索任务（每批作为一个任务）
+    const tgBatchSize = conc;
+    for (let i = 0; i < enabledTgChannels.length; i += tgBatchSize) {
+      const batch = enabledTgChannels.slice(i, i + tgBatchSize);
+      const task = async () => {
+        try {
+          const extParam = JSON.stringify({ __plugin_timeout_ms: settings.pluginTimeoutMs });
+          const response = await $fetch<GenericResponse<SearchResponse>>(
+            `${apiBase}/search?kw=${encodeURIComponent(keyword)}&res=merged_by_type&src=tg&channels=${batch.join(',')}&conc=${conc}&ext=${encodeURIComponent(extParam)}`
+          );
+          return response.data?.merged_by_type || {};
+        } catch (error) {
+          console.warn(`TG batch ${Math.floor(i / tgBatchSize)} search failed:`, error);
+          return {};
+        }
+      };
+      searchTasks.push(task);
+    }
+
+    // 使用 p-limit 控制并发数
+    const pLimit = (await import('p-limit')).default;
+    const limit = pLimit(conc);
+
+    // 执行所有搜索任务，每个任务完成后立即更新页面
+    let currentMerged: MergedLinks = {};
+    const mySeq = ++searchSeq;
+
+    const limitedTasks = searchTasks.map((task) => limit(task));
+
+    for (const task of limitedTasks) {
+      if (mySeq !== searchSeq) break; // 新搜索已开始
+
+      try {
+        const result = await task();
+        if (Object.keys(result).length > 0) {
+          currentMerged = mergeMergedByType(currentMerged, result);
+          setMerged(currentMerged);
+          setTotal(
+            Object.values(currentMerged).reduce(
+              (sum, arr) => sum + (arr?.length || 0),
+              0
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Search task error:', error);
+      }
+    }
+  }
+
   // 快速搜索（第一批）- 实时更新版本
   async function performFastSearch(
     options: SearchOptions,
@@ -425,29 +512,10 @@ export function useSearch() {
     const start = performance.now();
 
     try {
-      // 1) 快速搜索 - 实时更新版本
-      let currentMerged: MergedLinks = {};
-      
-      const fastMerged = await performFastSearch(options, (incomingMerged) => {
-        // 每个接口返回后立即更新页面
-        if (mySeq !== searchSeq) return;
-        currentMerged = mergeMergedByType(currentMerged, incomingMerged);
-        setMerged(currentMerged);
-        setTotal(
-          Object.values(currentMerged).reduce(
-            (sum, arr) => sum + (arr?.length || 0),
-            0
-          )
-        );
-      });
+      // 并行搜索 - 每个源独立请求，实时更新
+      await performParallelSearch(options);
       
       if (mySeq !== searchSeq) return;
-
-      // 2) 深度搜索
-      setDeepLoading(true);
-      await performDeepSearch(options, mySeq);
-      // 如果暂停了，停止后续操作
-      if (state.value.paused) return;
     } catch (error: any) {
       setError(error?.data?.message || error?.message || "请求失败");
     } finally {
