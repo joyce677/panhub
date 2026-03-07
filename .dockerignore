@@ -7,4 +7,9 @@ node_modules
 .DS_Store
 .env*
 coverage
+.github
+docs
+test
+*.test.ts
+*.test.mjs
 

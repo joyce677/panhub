@@ -58,48 +58,35 @@ jobs:
             type=ref,event=tag
             type=sha
 
-      - name: Read version from package.json
-        id: ver
+      - name: Read version and prepare tags
+        id: tags
         run: |
           VER=$(node -p "require('./package.json').version")
           echo "version=$VER" >> $GITHUB_OUTPUT
+          REPO="${{ github.event.repository.name }}"
+          {
+            echo "ghcr.io/${{ github.repository }}:$VER"
+            echo "ghcr.io/${{ github.repository }}:latest"
+            echo "${{ steps.meta.outputs.tags }}"
+            if [ -n "$DOCKERHUB_USERNAME" ]; then
+              echo "docker.io/$DOCKERHUB_USERNAME/$REPO:$VER"
+              echo "docker.io/$DOCKERHUB_USERNAME/$REPO:latest"
+              echo "docker.io/$DOCKERHUB_USERNAME/$REPO:${{ github.ref_name }}"
+              echo "docker.io/$DOCKERHUB_USERNAME/$REPO:sha-${{ github.sha }}"
+            fi
+          } | grep -v '^$' > tags.txt
+          echo "list<<EOF" >> $GITHUB_OUTPUT
+          cat tags.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Build and push
+      - name: Build and push (single build, dual registry)
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ steps.meta.outputs.tags }}
-            ghcr.io/${{ github.repository }}:${{ steps.ver.outputs.version }}
-            ghcr.io/${{ github.repository }}:latest
+          tags: ${{ steps.tags.outputs.list }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-
-      - name: Extract metadata (tags, labels) for Docker Hub
-        id: meta_dh
-        if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
-        uses: docker/metadata-action@v5
-        with:
-          images: docker.io/${{ env.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha
-
-      - name: Build and push (Docker Hub)
-        uses: docker/build-push-action@v6
-        if: ${{ env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ steps.meta_dh.outputs.tags }}
-            docker.io/${{ env.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ steps.ver.outputs.version }}
-            docker.io/${{ env.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:latest
-          labels: ${{ steps.meta_dh.outputs.labels }}
