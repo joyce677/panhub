@@ -111,7 +111,12 @@
       <span>{{ searchState.error }}</span>
     </section>
 
-    <!-- 热搜推荐 - 始终显示 -->
+    <!-- 豆瓣热搜 - 影视热榜 -->
+    <section class="douban-hot-section">
+      <DoubanHotSection ref="doubanHotRef" :on-search="quickSearch" />
+    </section>
+
+    <!-- 热门搜索 - 用户搜索历史 -->
     <section class="hot-search-section">
       <HotSearchSection ref="hotSearchRef" :on-search="quickSearch" />
     </section>
@@ -128,14 +133,13 @@ const siteUrl = (config.public?.siteUrl as string) || "";
 
 // 热搜组件引用
 const hotSearchRef = ref<InstanceType<typeof HotSearchSection> | null>(null);
+const doubanHotRef = ref<InstanceType<typeof DoubanHotSection> | null>(null);
 
 // 页面加载时初始化热搜数据
 onMounted(async () => {
-  // 等待组件挂载完成
-  await new Promise(resolve => setTimeout(resolve, 100));
-  if (hotSearchRef.value) {
-    await hotSearchRef.value.init();
-  }
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  if (doubanHotRef.value) await doubanHotRef.value.init();
+  if (hotSearchRef.value) await hotSearchRef.value.init();
 });
 
 // SEO 元数据
@@ -259,10 +263,8 @@ async function handleContinueSearch() {
 async function fullReset() {
   kw.value = "";
   resetSearch();
-  // 重置时刷新热搜数据
-  if (hotSearchRef.value) {
-    hotSearchRef.value.refresh();
-  }
+  if (doubanHotRef.value) doubanHotRef.value.refresh();
+  if (hotSearchRef.value) hotSearchRef.value.refresh();
 }
 
 // 平台信息
