@@ -339,16 +339,14 @@ export function useSearch() {
   function resetSearch(): void {
     cancelActiveRequests();
     searchSeq++;
-    state.value = {
-      loading: false,
-      deepLoading: false,
-      paused: false,
-      error: "",
-      searched: false,
-      elapsedMs: 0,
-      total: 0,
-      merged: {},
-    };
+    setLoading(false);
+    setDeepLoading(false);
+    setPaused(false);
+    setError("");
+    setSearched(false);
+    setElapsedMs(0);
+    setTotal(0);
+    setMerged({});
   }
 
   // 复制链接
