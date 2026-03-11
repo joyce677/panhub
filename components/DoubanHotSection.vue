@@ -241,9 +241,9 @@ function setupLoadMoreObserver() {
       {
         root: null,
         // 移动端使用更大的 rootMargin 以提前触发加载
-        rootMargin: isMobile ? "200px" : "100px",
-        // 降低 threshold 使其更容易触发
-        threshold: 0.01,
+        rootMargin: isMobile ? "200px" : "150px",
+        // 移动端使用更低的 threshold，PC端使用标准的 0.1
+        threshold: isMobile ? 0.01 : 0.1,
       }
     );
 
