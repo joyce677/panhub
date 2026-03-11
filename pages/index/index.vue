@@ -32,7 +32,7 @@
       v-model="kw"
       :loading="searchState.loading"
       :paused="searchState.paused"
-      :searched="searchState.searched"
+      :searched="searched"
       :placeholder="placeholder"
       @search="onSearch"
       @reset="fullReset"
@@ -40,7 +40,7 @@
       @continue="handleContinueSearch" />
 
     <!-- 统计和过滤器 -->
-    <div v-if="searchState.searched" class="stats-bar">
+    <div v-if="searched" class="stats-bar">
       <div class="stats-content">
         <div class="stats-main">
           <span class="stat-item">
@@ -109,7 +109,7 @@
     </section>
 
     <!-- 空状态：仅当搜索完全结束且无结果时显示，搜索进行中不显示 -->
-    <section v-else-if="searchState.searched && !searchState.loading && !searchState.deepLoading && !searchState.paused" class="empty-state">
+    <section v-else-if="searched && !searchState.loading && !searchState.deepLoading && !searchState.paused" class="empty-state">
       <div class="empty-card">
         <div class="empty-icon">🔍</div>
         <h3>未找到相关资源</h3>
@@ -124,7 +124,7 @@
     </section>
 
     <!-- 豆瓣电影新片榜 - 搜索时隐藏 -->
-    <section v-if="!searchState.searched" class="douban-hot-section">
+    <section v-if="!searched" class="douban-hot-section">
       <DoubanHotSection ref="doubanHotRef" :on-search="quickSearch" />
     </section>
   </div>
@@ -208,6 +208,7 @@ const expandedSet = ref<Set<string>>(new Set());
 // 使用搜索 composable
 const {
   state: searchState,
+  searched,
   performSearch,
   resetSearch,
   copyLink,
