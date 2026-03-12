@@ -295,9 +295,14 @@ async function handleContinueSearch() {
 async function fullReset() {
   // 清空输入框和重置状态
   kw.value = "";
+  sortType.value = "default";
+  filterPlatform.value = "all";
+  expandedSet.value = new Set();
   resetSearch();
   // 刷新页面以恢复初始状态（包括豆瓣电影）
-  window.location.reload();
+  await nextTick();
+  if (doubanHotRef.value) await doubanHotRef.value.init();
+  if (hotSearchRef.value) await hotSearchRef.value.refresh();
 }
 
 // 平台信息
